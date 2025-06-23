@@ -9,7 +9,10 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "google-genai>=1.21.1",
+    "numpy>=2.2.6",
+    "pyaudio>=0.2.14",
     "rich>=14.0.0",
+    "taskgroup>=0.2.2",
 ]
 
 [dependency-groups]
