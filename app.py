@@ -1,18 +1,19 @@
-from websockets.legacy.client import WebSocketClientProtocol
-from websockets_proxy import Proxy, proxy_connect
 import asyncio
 import base64
 import json
 import os
 import sys
+
+import dotenv
+import numpy as np
 import pyaudio
+from elevenlabs import ElevenLabs, play
 from rich.console import Console
 from rich.markdown import Markdown
 from websockets.asyncio.client import connect
 from websockets.asyncio.connection import Connection
-from elevenlabs import ElevenLabs, play
-import numpy as np
-import dotenv
+from websockets.legacy.client import WebSocketClientProtocol
+from websockets_proxy import Proxy, proxy_connect
 
 dotenv.load_dotenv()
 
@@ -42,6 +43,7 @@ THEMES = {
     "social": ["meeting friends", "party", "social media", "dating"],
 }
 
+
 class AudioLoop:
     def __init__(self):
         self.ws: WebSocketClientProtocol | Connection
@@ -52,7 +54,7 @@ class AudioLoop:
         self.current_scenario = None
         self.console = Console()
         self.voice_client = None
-        
+
         # 初始化语音客户端
         if voice_api_key:
             self.console.print("启动语音模式", style="green")
@@ -64,15 +66,15 @@ class AudioLoop:
         """计算发音得分"""
         try:
             audio_array = np.frombuffer(audio_data, dtype=np.int16)
-            
+
             # 计算音频特征
             energy = np.mean(np.abs(audio_array))
             zero_crossings = np.sum(np.abs(np.diff(np.signbit(audio_array))))
-            
+
             # 归一化并计算得分
             energy_score = min(100, energy / 1000)
             rhythm_score = min(100, zero_crossings / 100)
-            
+
             # 最终得分
             final_score = int(0.6 * energy_score + 0.4 * rhythm_score)
             return min(100, max(0, final_score))
@@ -141,7 +143,7 @@ First, ask which theme they want to practice (business, travel, daily life, soci
             }
         }
         await self.ws.send(json.dumps(initial_msg))
-        
+
         # 等待AI回复OK
         current_response = []
         async for raw_response in self.ws:
@@ -190,7 +192,7 @@ First, ask which theme they want to practice (business, travel, daily life, soci
             # 音量检测
             audio_data = []
             for i in range(0, len(data), 2):
-                sample = int.from_bytes(data[i:i+2], byteorder="little", signed=True)
+                sample = int.from_bytes(data[i : i + 2], byteorder="little", signed=True)
                 audio_data.append(abs(sample))
             volume = sum(audio_data) / len(audio_data)
 
@@ -244,7 +246,7 @@ First, ask which theme they want to practice (business, travel, daily life, soci
                 turn_complete = response["serverContent"]["turnComplete"]
                 if turn_complete and current_response:
                     text = "".join(current_response)
-                    
+
                     # 检查是否是控制命令
                     if "can i have a break" in text.lower():
                         self.paused = True
@@ -252,17 +254,18 @@ First, ask which theme they want to practice (business, travel, daily life, soci
                     elif "ok let's continue" in text.lower() and self.paused:
                         self.paused = False
                         self.console.print("\n▶️ 会话继续", style="green")
-                    
+
                     # 显示响应
                     self.console.print("\n🤖 =============================================", style="yellow")
                     self.console.print(Markdown(text))
-                    
+
                     # 播放语音
                     if self.voice_client and not self.paused:
                         try:
+
                             def play_audio():
                                 # 分割中英文内容
-                                parts = text.split('---')
+                                parts = text.split("---")
                                 if len(parts) > 0:
                                     # 只播放英文部分（第一部分）
                                     english_text = parts[0].strip()
@@ -292,12 +295,12 @@ First, ask which theme they want to practice (business, travel, daily life, soci
         else:
             self.console.print("不使用代理", style="yellow")
 
-        async with (proxy_connect(uri, proxy=proxy) if proxy else connect(uri)) as ws:
+        async with proxy_connect(uri, proxy=proxy) if proxy else connect(uri) as ws:
             self.ws = ws
             self.console.print("Gemini 英语口语助手", style="green", highlight=True)
             self.console.print("Make by twitter: @BoxMrChen", style="blue")
             self.console.print("============================================", style="yellow")
-            
+
             await self.startup()
 
             async with asyncio.TaskGroup() as tg:
@@ -314,6 +317,7 @@ First, ask which theme they want to practice (business, travel, daily life, soci
 
                 for task in tg._tasks:
                     task.add_done_callback(check_error)
+
 
 if __name__ == "__main__":
     main = AudioLoop()
